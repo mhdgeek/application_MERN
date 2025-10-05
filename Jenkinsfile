@@ -10,21 +10,22 @@ pipeline {
         FRONT_IMAGE = 'react-frontend'
         BACK_IMAGE  = 'express-backend'
     }
+
     triggers {
-        // Pour que le pipeline démarre quand le webhook est reçu
         GenericTrigger(
             genericVariables: [
                 [key: 'ref', value: '$.ref'],
                 [key: 'pusher_name', value: '$.pusher.name'],
                 [key: 'commit_message', value: '$.head_commit.message']
             ],
-            causeString: 'Push par $pusher_name sur $ref: "$commit_message"',
+            causeString: 'Push GitHub par $pusher_name: $commit_message',
             token: 'mysecret',
             printContributedVariables: true,
-            printPostContent: true
+            printPostContent: true,
+            regexpFilterText: '$ref',
+            regexpFilterExpression: 'refs/heads/main'
         )
     }
-
 
     stages {
         stage('Checkout') {
@@ -37,7 +38,6 @@ pipeline {
             steps {
                 dir('back-end') {
                     bat 'npm install'
-                    bat 'node -v && npm -v'
                 }
             }
         }
@@ -46,7 +46,6 @@ pipeline {
             steps {
                 dir('front-end') {
                     bat 'npm install'
-                    bat 'node -v && npm -v'
                 }
             }
         }
@@ -54,74 +53,70 @@ pipeline {
         stage('Run Tests') {
             steps {
                 dir('back-end') {
-                    bat 'npm test || echo Aucun test backend'
+                    bat 'npm test || echo "Aucun test backend ou échec ignoré"'
                 }
                 dir('front-end') {
-                    bat 'npm test || echo Aucun test frontend'
+                    bat 'npm test || echo "Aucun test frontend ou échec ignoré"'
                 }
             }
         }
 
         stage('Build Docker Images') {
             steps {
-                bat "docker build -t %DOCKER_HUB_USER%/%FRONT_IMAGE%:latest ./front-end"
-                bat "docker build -t %DOCKER_HUB_USER%/%BACK_IMAGE%:latest ./back-end"
+                script {
+                    bat "docker build -t ${env.DOCKER_HUB_USER}/${env.FRONT_IMAGE}:latest ./front-end"
+                    bat "docker build -t ${env.DOCKER_HUB_USER}/${env.BACK_IMAGE}:latest ./back-end"
+                }
             }
         }
 
         stage('Push Docker Images') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    bat '''
-                        echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin
-                        docker push %DOCKER_USER%/react-frontend:latest
-                        docker push %DOCKER_USER%/express-backend:latest
-                    '''
+                    script {
+                        bat "echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin"
+                        bat "docker push ${env.DOCKER_HUB_USER}/${env.FRONT_IMAGE}:latest"
+                        bat "docker push ${env.DOCKER_HUB_USER}/${env.BACK_IMAGE}:latest"
+                    }
                 }
             }
         }
 
-        stage('Check Docker & Compose') {
-            steps {
-                bat 'docker --version'
-                bat 'docker-compose --version || echo docker-compose non trouvé'
-            }
-        }
-
-        stage('Deploy (docker-compose)') {
+        stage('Deploy') {
             steps {
                 dir('.') {
-                    bat 'docker-compose -f compose.yaml down || exit 0'
-                    bat 'docker-compose -f compose.yaml pull || exit 0'
-                    bat 'docker-compose -f compose.yaml up -d'
-                    bat 'docker-compose -f compose.yaml ps'
-                    bat 'docker-compose -f compose.yaml logs -f --tail=20'
+                    bat 'docker-compose -f compose.yaml down || echo "Arrêt des conteneurs existants"'
+                    bat 'docker-compose -f compose.yaml up -d --build'
                 }
             }
         }
 
         stage('Smoke Test') {
             steps {
-                bat '''
-                    curl -f http://localhost:3000 || echo Frontend unreachable
-                    curl -f http://localhost:5000 || echo Backend unreachable
-                '''
+                script {
+                    sleep time: 30, unit: 'SECONDS' // Attendre que les services démarrent
+                    bat 'curl -f http://localhost:3000 || echo "Frontend non accessible"'
+                    bat 'curl -f http://localhost:5000 || echo "Backend non accessible"'
+                }
             }
         }
     }
 
     post {
+        always {
+            echo 'Pipeline terminé - vérifiez les logs pour les détails'
+        }
         success {
             emailext(
-                subject: "Build SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: "Pipeline réussi\nDétails : ${env.BUILD_URL}",
+                subject: "SUCCÈS Build: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: "Le pipeline a réussi!\nConsultez: ${env.BUILD_URL}",
                 to: "fatimadiouf308@gmail.com"
             )
         }
         failure {
             emailext(
-                subject: "Build FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: "Le pipeline a échoué\nDétails : ${env.BUILD_URL}",
+                subject: "ÉCHEC Build: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: "Le pipeline a échoué.\nDétails: ${env.BUILD_URL}",
                 to: "fatimadiouf308@gmail.com"
             )
         }
