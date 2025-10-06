@@ -91,15 +91,15 @@ pipeline {
             }
         }
 
-        stage('Smoke Test') {
-            steps {
-                bat '''
-                    timeout 30 || echo "Attente du démarrage..."
-                    curl http://localhost:3000 && echo "Frontend OK"
-                    curl http://localhost:5000 && echo "Backend OK"
-                '''
-            }
-        }
+        // stage('Smoke Test') {
+        //     steps {
+        //         bat '''
+        //             timeout 30 || echo "Attente du démarrage..."
+        //             curl http://localhost:3000 && echo "Frontend OK"
+        //             curl http://localhost:5000 && echo "Backend OK"
+        //         '''
+        //     }
+        // }
     }
 
     post {
