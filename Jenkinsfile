@@ -93,14 +93,13 @@ pipeline {
 
         stage('Smoke Test') {
             steps {
-                script {
-                    sleep time: 30, unit: 'SECONDS' // Attendre que les services démarrent
-                    bat 'curl -f http://localhost:3000 || echo "Frontend non accessible"'
-                    bat 'curl -f http://localhost:5000 || echo "Backend non accessible"'
-                }
+                bat '''
+                    timeout 30 || echo "Attente du démarrage..."
+                    curl http://localhost:3000 && echo "Frontend OK"
+                    curl http://localhost:5000 && echo "Backend OK"
+                '''
             }
         }
-    }
 
     post {
         always {
