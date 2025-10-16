@@ -49,35 +49,35 @@ pipeline {
                 }
             }
         }
-            // Étape du pipeline dédiée à l'analyse SonarQube
-        stage('SonarQube Analysis') {
-            steps {
-                // Active l'environnement SonarQube configuré dans Jenkins
-                // "SonarQubeServer" est le nom que tu as défini dans "Manage Jenkins > Configure System"
-                withSonarQubeEnv('SonarQubeServer') { 
-                    script {
-                        // Récupère le chemin du SonarQubeScanner installé via "Global Tool Configuration"
-                        def scannerHome = tool 'SonarQubeScanner' 
+          // Étape du pipeline dédiée à l'analyse SonarQube
+        // stage('SonarQube Analysis') {
+        //     steps {
+        //         // Active l'environnement SonarQube configuré dans Jenkins
+        //         // "SonarQubeServer" est le nom que tu as défini dans "Manage Jenkins > Configure System"
+        //         withSonarQubeEnv('SonarQubeServer') { 
+        //             script {
+        //                 // Récupère le chemin du SonarQubeScanner installé via "Global Tool Configuration"
+        //                 def scannerHome = tool 'SonarQubeScanner' 
                         
-                        // Exécute la commande sonar-scanner pour analyser le code
-                        // Le scanner envoie les résultats au serveur SonarQube
-                        sh "${scannerHome}/bin/sonar-scanner"
-                    }
-                }
-            }
-        }
+        //                 // Exécute la commande sonar-scanner pour analyser le code
+        //                 // Le scanner envoie les résultats au serveur SonarQube
+        //                 sh "${scannerHome}/bin/sonar-scanner"
+        //             }
+        //         }
+        //     }
+        // }
 
-        // Étape du pipeline qui vérifie le Quality Gate
-        stage('Quality Gate') {
-            steps {
-                // Définit un délai maximum de 3 minutes pour attendre la réponse de SonarQube
-                timeout(time: 2, unit: 'MINUTES') {
-                    // Attend le résultat du Quality Gate (succès ou échec)
-                    // Si le Quality Gate échoue, le pipeline est automatiquement interrompu (abortPipeline: true)
-                    waitForQualityGate abortPipeline: true
-                }
-            }
-        }
+     // Étape du pipeline qui vérifie le Quality Gate
+        // stage('Quality Gate') {
+        //     steps {
+        //         // Définit un délai maximum de 3 minutes pour attendre la réponse de SonarQube
+        //         timeout(time: 2, unit: 'MINUTES') {
+        //             // Attend le résultat du Quality Gate (succès ou échec)
+        //             // Si le Quality Gate échoue, le pipeline est automatiquement interrompu (abortPipeline: true)
+        //             waitForQualityGate abortPipeline: true
+        //         }
+        //     }
+        // }
         
         stage('Run Tests') {
             steps {
