@@ -88,22 +88,22 @@ stages {
         steps {
             script {
                 echo "🚀 Déploiement MongoDB..."
-                sh 'kubectl apply -f k8s/mongodb-deployment.yaml'
+                bat 'kubectl apply -f k8s/mongodb-deployment.yaml'
 
                 echo "⏳ Attente du démarrage de MongoDB..."
-                sh 'sleep 60'
+                bat 'sleep 60'
 
                 echo "🚀 Déploiement Backend..."
-                sh 'kubectl apply -f k8s/backend-deployment.yaml'
-                sh 'kubectl apply -f k8s/backend-service.yaml'
-                sh 'sleep 20'
+                bat 'kubectl apply -f k8s/backend-deployment.yaml'
+                bat 'kubectl apply -f k8s/backend-service.yaml'
+                bat 'sleep 20'
 
                 echo "🚀 Déploiement Frontend..."
-                sh 'kubectl apply -f k8s/frontend-deployment.yaml'
-                sh 'kubectl apply -f k8s/frontend-service.yaml'
+                bat 'kubectl apply -f k8s/frontend-deployment.yaml'
+                bat 'kubectl apply -f k8s/frontend-service.yaml'
 
                 echo "⏳ Attente des déploiements..."
-                sh '''
+                bat '''
                     kubectl rollout status deployment/backend-deployment --timeout=300s
                     kubectl rollout status deployment/frontend-deployment --timeout=300s
                 '''
@@ -115,7 +115,7 @@ stages {
         steps {
             script {
                 echo "🔍 Vérification simplifiée des services..."
-                sh '''
+                bat '''
                     echo "=== Vérification des pods ==="
                     kubectl get pods
                     RUNNING_PODS=$(kubectl get pods --no-headers | grep -c "Running")
@@ -128,7 +128,7 @@ stages {
                     fi
                 '''
 
-                sh '''
+                bat '''
                     echo "=== Test du backend ==="
                     kubectl port-forward service/backend-service 5001:5000 2>/dev/null &
                     sleep 5
@@ -136,7 +136,7 @@ stages {
                     pkill -f "kubectl port-forward" 2>/dev/null || true
                 '''
 
-                sh '''
+                bat '''
                     echo "=== Test du frontend ==="
                     FRONTEND_PORT=$(kubectl get service frontend-service -o jsonpath='{.spec.ports[0].nodePort}')
                     MINIKUBE_IP=$(minikube ip)
@@ -150,10 +150,10 @@ stages {
     stage('Update Kubernetes Images') {
         steps {
             script {
-                sh "kubectl set image deployment/backend-deployment backend=${env.DOCKER_HUB_USER}/${env.BACK_IMAGE}:${BUILD_NUMBER}"
-                sh "kubectl set image deployment/frontend-deployment frontend=${env.DOCKER_HUB_USER}/${env.FRONT_IMAGE}:${BUILD_NUMBER}"
+                bat "kubectl set image deployment/backend-deployment backend=${env.DOCKER_HUB_USER}/${env.BACK_IMAGE}:${BUILD_NUMBER}"
+                bat "kubectl set image deployment/frontend-deployment frontend=${env.DOCKER_HUB_USER}/${env.FRONT_IMAGE}:${BUILD_NUMBER}"
 
-                sh '''
+                bat '''
                     kubectl rollout status deployment/backend-deployment --timeout=300s
                     kubectl rollout status deployment/frontend-deployment --timeout=300s
                 '''
@@ -167,7 +167,7 @@ post {
         echo 'Pipeline terminé - vérifiez les logs pour les détails'
         script {
             if (currentBuild.result == 'FAILURE') {
-                sh '''
+                bat '''
                     echo "=== Backend Pods ==="
                     kubectl get pods -l app=backend
                     echo "=== Frontend Pods ==="
@@ -183,7 +183,7 @@ post {
 
     success {
         script {
-            sh '''
+            bat '''
                 echo "🎉 DÉPLOIEMENT RÉUSSI !"
                 echo "Frontend: $(minikube service frontend-service --url)"
                 echo "Backend: $(minikube service backend-service --url)"
@@ -210,7 +210,7 @@ post {
     }
 
     cleanup {
-        sh '''
+        bat '''
             docker logout
             echo "Cleanup completed"
         '''
