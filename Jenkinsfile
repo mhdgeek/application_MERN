@@ -91,12 +91,12 @@ stages {
                 bat 'kubectl apply -f k8s/mongodb-deployment.yaml'
 
                 echo "⏳ Attente du démarrage de MongoDB..."
-                bat 'timeout /t 60 /nobreak'
+                // bat 'timeout /t 60 /nobreak'
 
                 echo "🚀 Déploiement Backend..."
                 bat 'kubectl apply -f k8s/backend-deployment.yaml'
                 bat 'kubectl apply -f k8s/backend-service.yaml'
-                bat 'timeout /t 20 /nobreak'
+                // bat 'timeout /t 20 /nobreak'
 
                 echo "🚀 Déploiement Frontend..."
                 bat 'kubectl apply -f k8s/frontend-deployment.yaml'
