@@ -1,7 +1,6 @@
 pipeline {
 agent any
 
-```
 tools {
     nodejs "NodeJS_22"
 }
@@ -217,6 +216,5 @@ post {
         '''
     }
 }
-```
 
 }
