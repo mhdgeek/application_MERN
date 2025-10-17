@@ -117,23 +117,24 @@ stages {
             echo "🔍 Vérification simplifiée des services..."
 
             // Vérification des pods
-            bat '''
+          bat '''
                 echo === Vérification des pods ===
-                kubectl get pods
-                for /f "tokens=1,2*" %%a in ('kubectl get pods --no-headers') do (
-                    set STATE=%%b
-                    if "%%b"=="Running" (
-                        set /a RUNNING+=1
-                    )
+                set RUNNING=0
+                set TOTAL=0
+                for /F "tokens=3" %%a in ('kubectl get pods --no-headers') do (
+                    set STATUS=%%a
+                    if "%%a"=="Running" set /a RUNNING+=1
                     set /a TOTAL+=1
                 )
-                if %RUNNING%==%TOTAL% (
-                    echo ✅ Tous les pods sont en cours d'exécution
-                ) else (
+                echo Pods running: %RUNNING% / %TOTAL%
+                if not "%RUNNING%"=="%TOTAL%" (
                     echo ❌ Certains pods ne sont pas prêts
                     exit /b 1
+                ) else (
+                    echo ✅ Tous les pods sont en cours d'exécution
                 )
             '''
+
 
             // Test du backend
             bat '''
