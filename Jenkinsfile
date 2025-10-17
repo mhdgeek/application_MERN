@@ -1,143 +1,222 @@
 pipeline {
-    agent any
+agent any
 
-    tools {
-        nodejs "NodeJS_22"
+```
+tools {
+    nodejs "NodeJS_22"
+}
+
+environment {
+    DOCKER_HUB_USER = 'fatimaaaah'
+    FRONT_IMAGE = 'react-frontend'
+    BACK_IMAGE  = 'express-backend'
+    PATH = "/usr/local/bin:${env.PATH}"
+    KUBECONFIG = "C:/Users/pc12/.kube/config"
+}
+
+triggers {
+    GenericTrigger(
+        genericVariables: [
+            [key: 'ref', value: '$.ref'],
+            [key: 'pusher_name', value: '$.pusher.name'],
+            [key: 'commit_message', value: '$.head_commit.message']
+        ],
+        causeString: 'Push GitHub par $pusher_name: $commit_message',
+        token: 'mysecret',
+        printContributedVariables: true,
+        printPostContent: true,
+        regexpFilterText: '$ref',
+        regexpFilterExpression: 'refs/heads/main'
+    )
+}
+
+stages {
+    stage('Checkout') {
+        steps {
+            git branch: 'main', url: 'https://github.com/fatimaaaaah/application_MERN.git'
+        }
     }
 
-    environment {
-        DOCKER_HUB_USER = 'fatimaaaah'
-        FRONT_IMAGE = 'react-frontend'
-        BACK_IMAGE  = 'express-backend'
+    stage('Install dependencies - Backend') {
+        steps {
+            dir('back-end') {
+                bat 'npm install'
+            }
+        }
     }
 
-    triggers {
-        GenericTrigger(
-            genericVariables: [
-                [key: 'ref', value: '$.ref'],
-                [key: 'pusher_name', value: '$.pusher.name'],
-                [key: 'commit_message', value: '$.head_commit.message']
-            ],
-            causeString: 'Push GitHub par $pusher_name: $commit_message',
-            token: 'mysecret',
-            printContributedVariables: true,
-            printPostContent: true,
-            regexpFilterText: '$ref',
-            regexpFilterExpression: 'refs/heads/main'
-        )
+    stage('Install dependencies - Frontend') {
+        steps {
+            dir('front-end') {
+                bat 'npm install'
+            }
+        }
     }
 
-    stages {
-        stage('Checkout') {
-            steps {
-                git branch: 'main', url: 'https://github.com/fatimaaaaah/application_MERN.git'
+    stage('Run Tests') {
+        steps {
+            dir('back-end') {
+                bat 'npm test || echo "Aucun test backend ou échec ignoré"'
+            }
+            dir('front-end') {
+                bat 'npm test || echo "Aucun test frontend ou échec ignoré"'
             }
         }
+    }
 
-        stage('Install dependencies - Backend') {
-            steps {
-                dir('back-end') {
-                    bat 'npm install'
-                }
+    stage('Build Docker Images') {
+        steps {
+            script {
+                bat "docker build -t ${env.DOCKER_HUB_USER}/${env.FRONT_IMAGE}:latest ./front-end"
+                bat "docker build -t ${env.DOCKER_HUB_USER}/${env.BACK_IMAGE}:latest ./back-end"
             }
         }
+    }
 
-        stage('Install dependencies - Frontend') {
-            steps {
-                dir('front-end') {
-                    bat 'npm install'
-                }
-            }
-        }
-          // Étape du pipeline dédiée à l'analyse SonarQube
-        // stage('SonarQube Analysis') {
-        //     steps {
-        //         // Active l'environnement SonarQube configuré dans Jenkins
-        //         // "SonarQubeServer" est le nom que tu as défini dans "Manage Jenkins > Configure System"
-        //         withSonarQubeEnv('SonarQubeServer') { 
-        //             script {
-        //                 // Récupère le chemin du SonarQubeScanner installé via "Global Tool Configuration"
-        //                 def scannerHome = tool 'SonarQubeScanner' 
-                        
-        //                 // Exécute la commande sonar-scanner pour analyser le code
-        //                 // Le scanner envoie les résultats au serveur SonarQube
-        //                 sh "${scannerHome}/bin/sonar-scanner"
-        //             }
-        //         }
-        //     }
-        // }
-
-     // Étape du pipeline qui vérifie le Quality Gate
-        // stage('Quality Gate') {
-        //     steps {
-        //         // Définit un délai maximum de 3 minutes pour attendre la réponse de SonarQube
-        //         timeout(time: 2, unit: 'MINUTES') {
-        //             // Attend le résultat du Quality Gate (succès ou échec)
-        //             // Si le Quality Gate échoue, le pipeline est automatiquement interrompu (abortPipeline: true)
-        //             waitForQualityGate abortPipeline: true
-        //         }
-        //     }
-        // }
-        
-        stage('Run Tests') {
-            steps {
-                dir('back-end') {
-                    bat 'npm test || echo "Aucun test backend ou échec ignoré"'
-                }
-                dir('front-end') {
-                    bat 'npm test || echo "Aucun test frontend ou échec ignoré"'
-                }
-            }
-        }
-        
-        stage('Build Docker Images') {
-            steps {
+    stage('Push Docker Images') {
+        steps {
+            withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                 script {
-                    bat "docker build -t ${env.DOCKER_HUB_USER}/${env.FRONT_IMAGE}:latest ./front-end"
-                    bat "docker build -t ${env.DOCKER_HUB_USER}/${env.BACK_IMAGE}:latest ./back-end"
-                }
-            }
-        }
-
-        stage('Push Docker Images') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    script {
-                        bat "echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin"
-                        bat "docker push ${env.DOCKER_HUB_USER}/${env.FRONT_IMAGE}:latest"
-                        bat "docker push ${env.DOCKER_HUB_USER}/${env.BACK_IMAGE}:latest"
-                    }
-                }
-            }
-        }
-
-        stage('Deploy') {
-            steps {
-                dir('.') {
-                    bat 'docker-compose -f compose.yaml down || echo "Arrêt des conteneurs existants"'
-                    bat 'docker-compose -f compose.yaml up -d --build'
+                    bat "echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin"
+                    bat "docker push ${env.DOCKER_HUB_USER}/${env.FRONT_IMAGE}:latest"
+                    bat "docker push ${env.DOCKER_HUB_USER}/${env.BACK_IMAGE}:latest"
                 }
             }
         }
     }
 
-    post {
-        always {
-            echo 'Pipeline terminé - vérifiez les logs pour les détails'
+    stage('Deploy to Kubernetes') {
+        steps {
+            script {
+                echo "🚀 Déploiement MongoDB..."
+                sh 'kubectl apply -f k8s/mongodb-deployment.yaml'
+
+                echo "⏳ Attente du démarrage de MongoDB..."
+                sh 'sleep 60'
+
+                echo "🚀 Déploiement Backend..."
+                sh 'kubectl apply -f k8s/backend-deployment.yaml'
+                sh 'kubectl apply -f k8s/backend-service.yaml'
+                sh 'sleep 20'
+
+                echo "🚀 Déploiement Frontend..."
+                sh 'kubectl apply -f k8s/frontend-deployment.yaml'
+                sh 'kubectl apply -f k8s/frontend-service.yaml'
+
+                echo "⏳ Attente des déploiements..."
+                sh '''
+                    kubectl rollout status deployment/backend-deployment --timeout=300s
+                    kubectl rollout status deployment/frontend-deployment --timeout=300s
+                '''
+            }
         }
-        success {
+    }
+
+    stage('Health Check & Smoke Tests') {
+        steps {
+            script {
+                echo "🔍 Vérification simplifiée des services..."
+                sh '''
+                    echo "=== Vérification des pods ==="
+                    kubectl get pods
+                    RUNNING_PODS=$(kubectl get pods --no-headers | grep -c "Running")
+                    TOTAL_PODS=$(kubectl get pods --no-headers | wc -l)
+                    if [ "$RUNNING_PODS" -eq "$TOTAL_PODS" ]; then
+                        echo "✅ Tous les pods sont en cours d'exécution"
+                    else
+                        echo "❌ Certains pods ne sont pas prêts"
+                        exit 1
+                    fi
+                '''
+
+                sh '''
+                    echo "=== Test du backend ==="
+                    kubectl port-forward service/backend-service 5001:5000 2>/dev/null &
+                    sleep 5
+                    curl -s http://localhost:5001 | head -1
+                    pkill -f "kubectl port-forward" 2>/dev/null || true
+                '''
+
+                sh '''
+                    echo "=== Test du frontend ==="
+                    FRONTEND_PORT=$(kubectl get service frontend-service -o jsonpath='{.spec.ports[0].nodePort}')
+                    MINIKUBE_IP=$(minikube ip)
+                    echo "Frontend URL: http://$MINIKUBE_IP:$FRONTEND_PORT"
+                    curl -s -o /dev/null -w "HTTP Code: %{http_code}\n" "http://$MINIKUBE_IP:$FRONTEND_PORT" || echo "Frontend en cours de démarrage"
+                '''
+            }
+        }
+    }
+
+    stage('Update Kubernetes Images') {
+        steps {
+            script {
+                sh "kubectl set image deployment/backend-deployment backend=${env.DOCKER_HUB_USER}/${env.BACK_IMAGE}:${BUILD_NUMBER}"
+                sh "kubectl set image deployment/frontend-deployment frontend=${env.DOCKER_HUB_USER}/${env.FRONT_IMAGE}:${BUILD_NUMBER}"
+
+                sh '''
+                    kubectl rollout status deployment/backend-deployment --timeout=300s
+                    kubectl rollout status deployment/frontend-deployment --timeout=300s
+                '''
+            }
+        }
+    }
+}
+
+post {
+    always {
+        echo 'Pipeline terminé - vérifiez les logs pour les détails'
+        script {
+            if (currentBuild.result == 'FAILURE') {
+                sh '''
+                    echo "=== Backend Pods ==="
+                    kubectl get pods -l app=backend
+                    echo "=== Frontend Pods ==="
+                    kubectl get pods -l app=frontend
+                    echo "=== MongoDB Pods ==="
+                    kubectl get pods -l app=mongodb
+                    echo "=== Services ==="
+                    kubectl get services
+                '''
+            }
+        }
+    }
+
+    success {
+        script {
+            sh '''
+                echo "🎉 DÉPLOIEMENT RÉUSSI !"
+                echo "Frontend: $(minikube service frontend-service --url)"
+                echo "Backend: $(minikube service backend-service --url)"
+            '''
+            frontendUrl = sh(script: 'minikube service frontend-service --url', returnStdout: true).trim()
+            backendUrl = sh(script: 'minikube service backend-service --url', returnStdout: true).trim()
+            echo "Frontend: ${frontendUrl}"
+            echo "Backend: ${backendUrl}"
             emailext(
                 subject: "SUCCÈS Build: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                 body: "Le pipeline a réussi!\nConsultez: ${env.BUILD_URL}",
                 to: "fatimadiouf308@gmail.com"
             )
         }
-        failure {
-            emailext(
-                subject: "ÉCHEC Build: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: "Le pipeline a échoué.\nDétails: ${env.BUILD_URL}",
-                to: "fatimadiouf308@gmail.com"
-            )
-        }
     }
+
+    failure {
+        echo "❌ Le déploiement a échoué."
+        emailext(
+            subject: "ÉCHEC Build: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+            body: "Le pipeline a échoué.\nDétails: ${env.BUILD_URL}",
+            to: "fatimadiouf308@gmail.com"
+        )
+    }
+
+    cleanup {
+        sh '''
+            docker logout
+            echo "Cleanup completed"
+        '''
+    }
+}
+```
+
 }
