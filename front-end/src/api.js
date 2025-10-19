@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // Remplace par l'URL récupérée via minikube service backend-service --url
-const API_URL = "http://192.168.49.2:30080/api/smartphones";
+const API_URL = "http://127.0.0.1:52145/api/smartphones";
 
 export const getSmartphones = async () => {
   try {
