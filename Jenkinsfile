@@ -146,10 +146,6 @@ pipeline {
     }
 
     post {
-        always {
-            echo 'Pipeline terminé'
-            sh 'docker logout'
-        }
         success {
             script {
                 frontendUrl = sh(script: 'minikube service frontend-service --url', returnStdout: true).trim()
