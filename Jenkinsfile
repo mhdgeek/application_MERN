@@ -6,7 +6,7 @@ tools {
 }
 
 environment {
-    DOCKER_HUB_USER = 'fatimaaaah'
+    DOCKER_HUB_USER = 'mhd0'
     FRONT_IMAGE = 'react-frontend'
     BACK_IMAGE  = 'express-backend'
     PATH = "/usr/local/bin:${env.PATH}"
@@ -32,14 +32,14 @@ triggers {
 stages {
     stage('Checkout') {
         steps {
-            git branch: 'main', url: 'https://github.com/fatimaaaaah/application_MERN.git'
+            git branch: 'main', url: 'https://github.com/mhdgeek/application_MERN.git'
         }
     }
 
     stage('Install dependencies - Backend') {
         steps {
             dir('back-end') {
-                bat 'npm install'
+                sh 'npm install'
             }
         }
     }
@@ -47,7 +47,7 @@ stages {
     stage('Install dependencies - Frontend') {
         steps {
             dir('front-end') {
-                bat 'npm install'
+                sh 'npm install'
             }
         }
     }
@@ -55,10 +55,10 @@ stages {
     stage('Run Tests') {
         steps {
             dir('back-end') {
-                bat 'npm test || echo "Aucun test backend ou échec ignoré"'
+                sh 'npm test || echo "Aucun test backend ou échec ignoré"'
             }
             dir('front-end') {
-                bat 'npm test || echo "Aucun test frontend ou échec ignoré"'
+                sh 'npm test || echo "Aucun test frontend ou échec ignoré"'
             }
         }
     }
@@ -66,8 +66,8 @@ stages {
     stage('Build Docker Images') {
         steps {
             script {
-                bat "docker build -t ${env.DOCKER_HUB_USER}/${env.FRONT_IMAGE}:latest ./front-end"
-                bat "docker build -t ${env.DOCKER_HUB_USER}/${env.BACK_IMAGE}:latest ./back-end"
+                sh "docker build -t ${env.DOCKER_HUB_USER}/${env.FRONT_IMAGE}:latest ./front-end"
+                sh "docker build -t ${env.DOCKER_HUB_USER}/${env.BACK_IMAGE}:latest ./back-end"
             }
         }
     }
@@ -76,9 +76,9 @@ stages {
         steps {
             withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                 script {
-                    bat "echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin"
-                    bat "docker push ${env.DOCKER_HUB_USER}/${env.FRONT_IMAGE}:latest"
-                    bat "docker push ${env.DOCKER_HUB_USER}/${env.BACK_IMAGE}:latest"
+                    sh "echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin"
+                    sh "docker push ${env.DOCKER_HUB_USER}/${env.FRONT_IMAGE}:latest"
+                    sh "docker push ${env.DOCKER_HUB_USER}/${env.BACK_IMAGE}:latest"
                 }
             }
         }
@@ -88,22 +88,22 @@ stages {
         steps {
             script {
                 echo "🚀 Déploiement MongoDB..."
-                bat 'kubectl apply -f k8s/mongodb-deployment.yaml'
+                sh 'kubectl apply -f k8s/mongodb-deployment.yaml'
 
                 echo "⏳ Attente du démarrage de MongoDB..."
                 // bat 'timeout /t 60 /nobreak'
 
                 echo "🚀 Déploiement Backend..."
-                bat 'kubectl apply -f k8s/backend-deployment.yaml'
-                bat 'kubectl apply -f k8s/backend-service.yaml'
+                sh 'kubectl apply -f k8s/backend-deployment.yaml'
+                sh 'kubectl apply -f k8s/backend-service.yaml'
                 // bat 'timeout /t 20 /nobreak'
 
                 echo "🚀 Déploiement Frontend..."
-                bat 'kubectl apply -f k8s/frontend-deployment.yaml'
-                bat 'kubectl apply -f k8s/frontend-service.yaml'
+                sh 'kubectl apply -f k8s/frontend-deployment.yaml'
+                sh 'kubectl apply -f k8s/frontend-service.yaml'
 
                 echo "⏳ Attente des déploiements..."
-                bat '''
+                sh '''
                     kubectl rollout status deployment/backend-deployment --timeout=300s
                     kubectl rollout status deployment/frontend-deployment --timeout=300s
                 '''
@@ -117,7 +117,7 @@ stages {
             echo "🔍 Vérification simplifiée des services..."
 
             // Vérification des pods
-          bat '''
+          sh '''
                 echo === Vérification des pods ===
                 set RUNNING=0
                 set TOTAL=0
@@ -137,7 +137,7 @@ stages {
 
 
             // Test du backend
-            bat '''
+            sh '''
                 echo === Test du backend ===
                 start /B kubectl port-forward service/backend-service 5001:5000
                 timeout /t 5 /nobreak
@@ -146,7 +146,7 @@ stages {
             '''
 
             // Test du frontend
-            bat '''
+            sh '''
                 echo === Test du frontend ===
                 for /f "delims=" %%p in ('kubectl get service frontend-service -o jsonpath="{.spec.ports[0].nodePort}"') do set FRONTEND_PORT=%%p
                 for /f "delims=" %%i in ('minikube ip') do set MINIKUBE_IP=%%i
@@ -161,10 +161,10 @@ stages {
     stage('Update Kubernetes Images') {
         steps {
             script {
-                bat "kubectl set image deployment/backend-deployment backend=${env.DOCKER_HUB_USER}/${env.BACK_IMAGE}:${BUILD_NUMBER}"
-                bat "kubectl set image deployment/frontend-deployment frontend=${env.DOCKER_HUB_USER}/${env.FRONT_IMAGE}:${BUILD_NUMBER}"
+                sh "kubectl set image deployment/backend-deployment backend=${env.DOCKER_HUB_USER}/${env.BACK_IMAGE}:${BUILD_NUMBER}"
+                sh "kubectl set image deployment/frontend-deployment frontend=${env.DOCKER_HUB_USER}/${env.FRONT_IMAGE}:${BUILD_NUMBER}"
 
-                bat '''
+                sh '''
                     kubectl rollout status deployment/backend-deployment --timeout=300s
                     kubectl rollout status deployment/frontend-deployment --timeout=300s
                 '''
@@ -178,7 +178,7 @@ post {
         echo 'Pipeline terminé - vérifiez les logs pour les détails'
         script {
             if (currentBuild.result == 'FAILURE') {
-                bat '''
+                sh '''
                     echo "=== Backend Pods ==="
                     kubectl get pods -l app=backend
                     echo "=== Frontend Pods ==="
@@ -194,7 +194,7 @@ post {
 
     success {
         script {
-            bat '''
+            sh '''
                 echo "🎉 DÉPLOIEMENT RÉUSSI !"
                 echo "Frontend: $(minikube service frontend-service --url)"
                 echo "Backend: $(minikube service backend-service --url)"
@@ -206,7 +206,7 @@ post {
             emailext(
                 subject: "SUCCÈS Build: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                 body: "Le pipeline a réussi!\nConsultez: ${env.BUILD_URL}",
-                to: "fatimadiouf308@gmail.com"
+                to: "mohamedndoye07@gmail.com"
             )
         }
     }
@@ -221,7 +221,7 @@ post {
     }
 
     cleanup {
-        bat '''
+        sh '''
             docker logout
             echo "Cleanup completed"
         '''
