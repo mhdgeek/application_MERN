@@ -163,4 +163,12 @@ pipeline {
                 )
             }
         }
-        failu
+        failure {
+        echo "❌ Le déploiement a échoué."
+        emailext(
+            subject: "ÉCHEC Build: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+            body: "Le pipeline a échoué.\nConsultez: ${env.BUILD_URL}",
+            to: "mohamedndoye07@gmail.com"
+        )
+    }
+}
