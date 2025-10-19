@@ -79,9 +79,15 @@ stages {
         steps {
             withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                 script {
-                    sh "echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin"
-                    sh "docker push ${env.DOCKER_HUB_USER}/${env.FRONT_IMAGE}:latest"
-                    sh "docker push ${env.DOCKER_HUB_USER}/${env.BACK_IMAGE}:latest"
+                    sh '''
+                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                        unset HTTP_PROXY
+                        unset HTTPS_PROXY
+                        unset NO_PROXY
+                        docker push ${env.DOCKER_HUB_USER}/${env.FRONT_IMAGE}:latest
+                        docker push ${env.DOCKER_HUB_USER}/${env.BACK_IMAGE}:latest
+                        '''
+
                 }
             }
         }
