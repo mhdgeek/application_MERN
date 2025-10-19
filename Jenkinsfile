@@ -36,21 +36,24 @@ stages {
         }
     }
 
-    stage('Install dependencies - Backend') {
-        steps {
-            dir('back-end') {
-                sh 'npm install'
+     stage('Install Dependencies') {
+            parallel {
+                stage('Backend Dependencies') {
+                    steps {
+                        dir('back-end') {
+                            sh 'npm install'
+                        }
+                    }
+                }
+                stage('Frontend Dependencies') {
+                    steps {
+                        dir('front-end') {
+                            sh 'npm install'
+                        }
+                    }
+                }
             }
         }
-    }
-
-    stage('Install dependencies - Frontend') {
-        steps {
-            dir('front-end') {
-                sh 'npm install'
-            }
-        }
-    }
 
     stage('Run Tests') {
         steps {
