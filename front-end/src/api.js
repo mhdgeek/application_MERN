@@ -1,7 +1,8 @@
 // front-end/src/api.js
 import axios from "axios";
 
-const API_URL = "http://localhost:30000/api/smartphones"; // backend exposé via NodePort
+// Remplace par l'IP de ton cluster et le port NodePort
+const API_URL = "http://localhost:30080/api/smartphones";
 
 export const getSmartphones = async () => {
   try {
@@ -18,7 +19,7 @@ export const saveSmartphone = async (smartphone) => {
     const response = await axios.post(API_URL, smartphone);
     return response.data;
   } catch (error) {
-    console.error("Error saving smartphone: ", error);
+    console.error("❌ Error saving smartphone:", error);
     throw error;
   }
 };
