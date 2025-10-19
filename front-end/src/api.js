@@ -1,8 +1,7 @@
-// front-end/src/api.js
 import axios from "axios";
 
-// Remplace par l'IP de ton cluster et le port NodePort
-const API_URL = "http://localhost:30080/api/smartphones";
+// Remplace par l'URL récupérée via minikube service backend-service --url
+const API_URL = "http://192.168.49.2:30080/api/smartphones";
 
 export const getSmartphones = async () => {
   try {
