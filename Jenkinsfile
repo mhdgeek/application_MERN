@@ -10,6 +10,7 @@ pipeline {
         FRONT_IMAGE = 'react-frontend'
         BACK_IMAGE  = 'express-backend'
         PATH = "/usr/local/bin:${env.PATH}"
+<<<<<<< HEAD
         KUBECONFIG = "/Users/mhd/.kube/config"
     }
 
@@ -51,6 +52,33 @@ pipeline {
                             sh 'npm install'
                         }
                     }
+=======
+        AWS_REGION = 'us-west-2'
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/mhdgeek/application_MERN.git'
+            }
+        }
+
+        stage('Install Dependencies') {
+            parallel {
+                stage('Backend Dependencies') {
+                    steps {
+                        dir('back-end') {
+                            sh 'npm install'
+                        }
+                    }
+                }
+                stage('Frontend Dependencies') {
+                    steps {
+                        dir('front-end') {
+                            sh 'npm install'
+                        }
+                    }
                 }
             }
         }
@@ -62,10 +90,25 @@ pipeline {
                 }
                 dir('front-end') {
                     sh 'npm test || echo "No frontend tests or skipped"'
+>>>>>>> 36a6b06 (ajout de terraform)
                 }
             }
         }
 
+<<<<<<< HEAD
+        stage('Run Tests') {
+            steps {
+                dir('back-end') {
+                    sh 'npm test || echo "No backend tests or skipped"'
+                }
+                dir('front-end') {
+                    sh 'npm test || echo "No frontend tests or skipped"'
+                }
+            }
+        }
+
+=======
+>>>>>>> 36a6b06 (ajout de terraform)
         stage('Build Docker Images') {
             steps {
                 script {
@@ -81,6 +124,7 @@ pipeline {
                     script {
                         sh """
                             echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin
+<<<<<<< HEAD
                             docker tag $DOCKER_HUB_USER/$FRONT_IMAGE:latest $DOCKER_HUB_USER/$FRONT_IMAGE:\$BUILD_NUMBER
                             docker tag $DOCKER_HUB_USER/$BACK_IMAGE:latest $DOCKER_HUB_USER/$BACK_IMAGE:\$BUILD_NUMBER
                             unset HTTP_PROXY
@@ -90,12 +134,17 @@ pipeline {
                             docker push $DOCKER_HUB_USER/$FRONT_IMAGE:\$BUILD_NUMBER
                             docker push $DOCKER_HUB_USER/$BACK_IMAGE:latest
                             docker push $DOCKER_HUB_USER/$BACK_IMAGE:\$BUILD_NUMBER
+=======
+                            docker push $DOCKER_HUB_USER/$FRONT_IMAGE:latest
+                            docker push $DOCKER_HUB_USER/$BACK_IMAGE:latest
+>>>>>>> 36a6b06 (ajout de terraform)
                         """
                     }
                 }
             }
         }
 
+<<<<<<< HEAD
         stage('Deploy to Kubernetes') {
             steps {
                 script {
@@ -115,10 +164,27 @@ pipeline {
                         kubectl rollout status deployment/backend-deployment --timeout=300s
                         kubectl rollout status deployment/frontend-deployment --timeout=300s
                     '''
+=======
+        stage('Deploy with Terraform') {
+            steps {
+                withCredentials([
+                    [
+                        $class: 'AmazonWebServicesCredentialsBinding',
+                        credentialsId: 'aws-sandbox-credentials'
+                    ]
+                ]) {
+                    dir('terraform') {
+                        sh '''
+                            terraform init
+                            terraform apply -auto-approve
+                        '''
+                    }
+>>>>>>> 36a6b06 (ajout de terraform)
                 }
             }
         }
 
+<<<<<<< HEAD
         stage('Health Check & Smoke Tests') {
             steps {
                 script {
@@ -140,6 +206,18 @@ pipeline {
                         kubectl rollout status deployment/backend-deployment --timeout=300s
                         kubectl rollout status deployment/frontend-deployment --timeout=300s
                     """
+=======
+        stage('Launch App on EC2') {
+            steps {
+                script {
+                    echo "Connexion SSH à l’instance EC2..."
+                    sh '''
+                        EC2_IP=$(terraform -chdir=terraform output -raw public_ip)
+                        echo "Instance EC2: $EC2_IP"
+                        ssh -o StrictHostKeyChecking=no -i ~/.ssh/aws-key.pem ec2-user@$EC2_IP "docker run -d -p 80:80 ${DOCKER_HUB_USER}/${FRONT_IMAGE}:latest"
+                        ssh -o StrictHostKeyChecking=no -i ~/.ssh/aws-key.pem ec2-user@$EC2_IP "docker run -d -p 3000:3000 ${DOCKER_HUB_USER}/${BACK_IMAGE}:latest"
+                    '''
+>>>>>>> 36a6b06 (ajout de terraform)
                 }
             }
         }
@@ -147,6 +225,7 @@ pipeline {
 
     post {
         success {
+<<<<<<< HEAD
             script {
                 frontendUrl = sh(script: 'minikube service frontend-service --url', returnStdout: true).trim()
                 backendUrl = sh(script: 'minikube service backend-service --url', returnStdout: true).trim()
@@ -169,3 +248,13 @@ pipeline {
     }
 }
 }
+=======
+            echo "✅ Déploiement réussi sur AWS EC2 !"
+        }
+        failure {
+            echo "❌ Le pipeline a échoué."
+        }
+    }
+}
+
+>>>>>>> 36a6b06 (ajout de terraform)
