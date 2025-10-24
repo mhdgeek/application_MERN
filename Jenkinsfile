@@ -11,11 +11,13 @@ pipeline {
         BACK_IMAGE  = 'express-backend'
         PATH = "/usr/local/bin:${env.PATH}"
         AWS_REGION = 'us-west-2'
+        SSH_KEY_PATH = '~/.ssh/aws-key.pem'
+        RECIPIENT_EMAIL = 'mohamedndoye07@gmail.com'
     }
 
     stages {
 
-        stage('Checkout') {
+        stage('Checkout Code') {
             steps {
                 git branch: 'main', url: 'https://github.com/mhdgeek/application_MERN.git'
             }
@@ -92,41 +94,70 @@ pipeline {
             }
         }
 
-        stage('Launch App on EC2') {
+        stage('Get EC2 Public IP') {
             steps {
                 script {
-                    echo "Connexion SSH à l’instance EC2..."
-                    sh '''
-                        EC2_IP=$(terraform -chdir=terraform output -raw public_ip)
-                        echo "Instance EC2: $EC2_IP"
-                        ssh -o StrictHostKeyChecking=no -i ~/.ssh/aws-key.pem ec2-user@$EC2_IP "docker run -d -p 80:80 ${DOCKER_HUB_USER}/${FRONT_IMAGE}:latest"
-                        ssh -o StrictHostKeyChecking=no -i ~/.ssh/aws-key.pem ec2-user@$EC2_IP "docker run -d -p 3000:3000 ${DOCKER_HUB_USER}/${BACK_IMAGE}:latest"
-                    '''
+                    env.EC2_IP = sh(script: "terraform -chdir=terraform output -raw public_ip", returnStdout: true).trim()
+                    echo "Instance EC2 IP: ${env.EC2_IP}"
+                }
+            }
+        }
+
+        stage('Send Code & Launch App') {
+            steps {
+                script {
+                    sh """
+                        # Copier backend et frontend
+                        scp -i ${SSH_KEY_PATH} -o StrictHostKeyChecking=no -r back-end ec2-user@${EC2_IP}:/home/ec2-user/
+                        scp -i ${SSH_KEY_PATH} -o StrictHostKeyChecking=no -r front-end ec2-user@${EC2_IP}:/home/ec2-user/
+
+                        # Lancer les apps via SSH
+                        ssh -i ${SSH_KEY_PATH} -o StrictHostKeyChecking=no ec2-user@${EC2_IP} << 'EOF'
+                        cd back-end
+                        npm install
+                        nohup npm start > backend.log 2>&1 &
+
+                        cd ../front-end
+                        npm install
+                        nohup npm start > frontend.log 2>&1 &
+                        EOF
+                    """
+                }
+            }
+        }
+
+        stage('Health Check') {
+            steps {
+                script {
+                    sh """
+                        curl -I http://${EC2_IP}:3000 || echo 'Frontend not ready yet'
+                        curl -I http://${EC2_IP}:5000 || echo 'Backend not ready yet'
+                    """
                 }
             }
         }
     }
 
- post {
-    success {
-        script {
-            def EC2_IP = sh(script: "terraform -chdir=terraform output -raw public_ip", returnStdout: true).trim()
-            echo "✅ Déploiement réussi sur http://${EC2_IP}:3000"
-            emailext(
-                subject: "SUCCÈS Build: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: "Le pipeline a réussi!\nFrontend: http://${EC2_IP}:3000\nBackend: http://${EC2_IP}:3000\nConsultez: ${env.BUILD_URL}",
-                to: "mohamedndoye07@gmail.com"
-            )
+    post {
+        success {
+            script {
+                echo "✅ Déploiement réussi sur http://${EC2_IP}:3000 (frontend) et http://${EC2_IP}:5000 (backend)"
+                emailext(
+                    subject: "✅ SUCCÈS Build: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                    body: "Le pipeline a réussi!\nFrontend: http://${EC2_IP}:3000\nBackend: http://${EC2_IP}:5000\nConsultez: ${env.BUILD_URL}",
+                    to: "${RECIPIENT_EMAIL}"
+                )
+            }
+        }
+        failure {
+            script {
+                echo "❌ Le pipeline a échoué"
+                emailext(
+                    subject: "❌ ÉCHEC Build: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                    body: "Le pipeline a échoué.\nConsultez: ${env.BUILD_URL}",
+                    to: "${RECIPIENT_EMAIL}"
+                )
+            }
         }
     }
-    failure {
-        echo "❌ Le pipeline a échoué."
-        emailext(
-            subject: "ÉCHEC Build: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-            body: "Le pipeline a échoué.\nConsultez: ${env.BUILD_URL}",
-            to: "mohamedndoye07@gmail.com"
-        )
-    }
-}
-
 }
