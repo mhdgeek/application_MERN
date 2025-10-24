@@ -1,4 +1,4 @@
 output "public_ip" {
-  value = aws_instance.fil_rouge_ec2.public_ip
+  description = "Public IP de l'EC2"
+  value       = aws_instance.app_server.public_ip
 }
-
