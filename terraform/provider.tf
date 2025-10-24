@@ -1,14 +1,23 @@
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-  }
-  required_version = ">= 1.5.0"
+variable "region" {
+  description = "AWS region"
+  type        = string
+  default     = "us-west-2"
 }
 
-provider "aws" {
-  region = var.aws_region
+variable "instance_type" {
+  description = "EC2 instance type"
+  type        = string
+  default     = "t2.micro"
 }
 
+variable "key_name" {
+  description = "Key pair name"
+  type        = string
+  default     = "aws-key"
+}
+
+variable "ami" {
+  description = "AMI ID pour EC2"
+  type        = string
+  default     = "ami-0c55b159cbfafe1f0"
+}
