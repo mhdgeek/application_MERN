@@ -1,25 +1,23 @@
+provider "aws" {
+  region = var.region
+}
+
+variable "private_key" {
+  type = string
+}
+
+variable "region" {
+  type    = string
+  default = "us-east-1"
+}
+
 resource "aws_instance" "app" {
-  ami           = "ami-0c55b159cbfafe1f0" # Amazon Linux 2
+  ami           = "ami-0c55b159cbfafe1f0" # à adapter selon ton OS
   instance_type = "t2.micro"
-  key_name      = "aws-key"
+  key_name      = "aws-key"  # Clé EC2 déjà créée dans AWS
+  private_key   = var.private_key
 
   tags = {
-    Name = "terraform-mern"
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      "sudo yum update -y",
-      "sudo yum install docker -y",
-      "sudo systemctl enable docker",
-      "sudo systemctl start docker"
-    ]
-
-    connection {
-      type        = "ssh"
-      user        = "ec2-user"
-      private_key = file("~/.ssh/aws-key.pem")
-      host        = self.public_ip
-    }
+    Name = "MERN-App"
   }
 }
