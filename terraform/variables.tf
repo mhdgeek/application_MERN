@@ -1,17 +1,23 @@
-variable "aws_region" {
-  default = "us-east-1"
+variable "region" {
+  description = "AWS region"
+  type        = string
+  default     = "us-west-2"
 }
 
 variable "instance_type" {
-  default = "t2.micro"
+  description = "Type de l'instance EC2"
+  type        = string
+  default     = "t2.micro"
 }
 
-variable "ami_id" {
-  default = "ami-0c02fb55956c7d316" # Amazon Linux 2
+variable "ami" {
+  description = "AMI pour EC2 (Amazon Linux 2)"
+  type        = string
+  default     = "ami-0c55b159cbfafe1f0"
 }
 
 variable "key_name" {
-  description = "Nom de la clé SSH"
-  default     = "ma-cle-ssh"
+  description = "Nom de la key pair pour SSH"
+  type        = string
+  default     = "aws-key"
 }
-
